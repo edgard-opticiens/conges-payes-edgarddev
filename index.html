@@ -437,6 +437,9 @@ async function genPDF(asBlob){
   document.querySelectorAll('input[type="date"]').forEach(function(el){if(!el.value)return;saved.push({el:el,v:el.value});el.type='text';el.value=fD(el.value)});
   var iosOverlay=document.getElementById('ios-rh-overlay');if(iosOverlay)iosOverlay.style.display='none';
   document.querySelectorAll('.modal,#toast,#sp').forEach(function(el){el.style.visibility='hidden'});
+  // Masquer les cadenas (shields) avant capture PDF
+  var shields=document.querySelectorAll('.shield');
+  shields.forEach(function(el){el.style.display='none'});
   var res=null;
   try{
     var cv=await html2canvas(ge('wrap'),{scale:1.0,useCORS:true,logging:false,windowWidth:900});
@@ -453,6 +456,8 @@ async function genPDF(asBlob){
     else{var d=_data||{};pdf.save(('Demande_'+(d.prenom||gv('prenom'))+'_'+(d.nom||gv('nom'))+'.pdf').replace(/\s/g,'-'));res=true}
   }catch(err){saved.forEach(function(s){s.el.value='';s.el.type='date';s.el.value=s.v});toast('Erreur PDF')}
   document.querySelectorAll('.modal,#toast,#sp').forEach(function(el){el.style.visibility=''});
+  // Restaurer les cadenas
+  shields.forEach(function(el){el.style.display=''});
   if(iosOverlay)iosOverlay.style.display='';
   return res;
 }
@@ -640,7 +645,12 @@ document.addEventListener('DOMContentLoaded',function(){
     _populateForm(_data);
     // Afficher signatures en lecture seule
     if(_data.sigStrokes){showSig('sigCArea',_data.sigStrokes);}
-    if(_data.sigRespStrokes&&ge('sigRespBlock').style.display!=='none'){showSig('sigRArea',_data.sigRespStrokes);}
+    if(_data.sigRespStrokes){
+      showSig('sigRArea',_data.sigRespStrokes);
+    } else {
+      ge('sigRespBlock').style.display='none';
+      ge('sigsGrid').className='sigs3 finance';
+    }
     if(_data.sigDirStrokes){showSig('sigDArea',_data.sigDirStrokes);}
     if(_data.tsC)ge('tsC').textContent='Signé le '+_data.tsC;
     if(_data.tsR)ge('tsR').textContent='Signé le '+_data.tsR;
@@ -670,11 +680,15 @@ document.addEventListener('DOMContentLoaded',function(){
     // Signature collab (read-only)
     if(_data.sigStrokes)showSig('sigCArea',_data.sigStrokes);
     if(_data.tsC)ge('tsC').textContent='Signé le '+_data.tsC;
-    // Signature responsable (read-only si présente)
+    // Signature responsable (read-only si présente, masquée pour services directs)
     if(_data.sigRespStrokes){
       ge('shieldR').style.display='none';
       showSig('sigRArea',_data.sigRespStrokes);
       if(_data.tsR)ge('tsR').textContent='Signé le '+_data.tsR;
+    } else {
+      // Pas d'étape responsable → masquer le bloc et passer en 2 colonnes
+      ge('sigRespBlock').style.display='none';
+      ge('sigsGrid').className='sigs3 finance';
     }
     if(_data.respNom){ge('decRespBox').style.display='block';ge('respNom').value=_data.respNom;ge('respPrenom').value=_data.respPrenom||'';ge('respNom').style.pointerEvents='none';ge('respPrenom').style.pointerEvents='none'}
     if(_data.decR){var rb=document.querySelector('input[name="decR"][value="'+_data.decR+'"]');if(rb)rb.checked=true;document.querySelectorAll('input[name="decR"]').forEach(function(r){r.style.pointerEvents='none'})}
