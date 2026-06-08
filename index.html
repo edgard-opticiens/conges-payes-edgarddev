@@ -440,6 +440,10 @@ async function genPDF(asBlob){
   // Masquer les cadenas (shields) avant capture PDF
   var shields=document.querySelectorAll('.shield');
   shields.forEach(function(el){el.style.display='none'});
+  // Supprimer le cadre/ombre du wrap pour PDF propre
+  var wrap=ge('wrap');
+  var origShadow=wrap.style.boxShadow,origRadius=wrap.style.borderRadius;
+  wrap.style.boxShadow='none';wrap.style.borderRadius='0';
   var res=null;
   try{
     var cv=await html2canvas(ge('wrap'),{scale:1.0,useCORS:true,logging:false,windowWidth:900});
@@ -458,6 +462,7 @@ async function genPDF(asBlob){
   document.querySelectorAll('.modal,#toast,#sp').forEach(function(el){el.style.visibility=''});
   // Restaurer les cadenas
   shields.forEach(function(el){el.style.display=''});
+  wrap.style.boxShadow=origShadow;wrap.style.borderRadius=origRadius;
   if(iosOverlay)iosOverlay.style.display='';
   return res;
 }
