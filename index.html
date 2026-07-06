@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script>
+try{
+  var _xhrM=new XMLHttpRequest();
+  _xhrM.open('GET','maintenance.txt?_='+Date.now(),false);
+  _xhrM.send(null);
+  if(_xhrM.status===200 && _xhrM.responseText.trim().toLowerCase()==='on'){
+    document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maintenance — Demande de Congés</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#F9F7F2;color:#1A1A1A"><div style="text-align:center;padding:20px;max-width:400px"><h2 style="font-family:Georgia,serif;margin-bottom:10px">Formulaire temporairement indisponible</h2><p style="color:#666;font-size:14px">Une mise à jour est en cours. Merci de réessayer dans quelques minutes.</p></div></body></html>');
+    document.close();
+  }
+}catch(e){}
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Demande de Congés — Edgard Développement</title>
@@ -152,8 +163,11 @@ body{background:#fff;padding:0;}
 
     <!-- Section Congé Payé -->
     <div class="sec">
-      <div class="sec-hdr"><div class="sec-ttl">Sollicite un congé payé</div></div>
-      <div class="sec-body">
+      <div class="sec-hdr" style="cursor:pointer;user-select:none" onclick="toggleCP()">
+        <input type="checkbox" id="chkCP" onclick="event.stopPropagation();toggleCP()" style="accent-color:var(--g);width:14px;height:14px;margin-right:2px">
+        <div class="sec-ttl">Sollicite un congé payé</div>
+      </div>
+      <div class="sec-body" id="cpBody" style="display:none">
         <div class="dg">
           <div class="fg"><label class="lbl">Premier jour non travaillé</label><input class="inp" type="date" id="cpD" onchange="calcJ()"></div>
           <div class="fg"><label class="lbl">Dernier jour non travaillé</label><input class="inp" type="date" id="cpF" onchange="calcJ()"></div>
@@ -163,6 +177,15 @@ body{background:#fff;padding:0;}
           <div><div style="font-size:12px;font-weight:600;color:var(--dk)">jours ouvrés décomptés</div><div class="jrd" id="jrD"></div></div>
         </div>
         <div class="rappel">Le congé principal (20 jours ouvrés) doit impérativement être pris dans la période du 1er mai au 31 octobre. &laquo;&nbsp;Si pour des raisons personnelles et avec l'accord de l'entreprise, je prends moins de jours dans la période mentionnée ci-dessus, je renonce à bénéficier des jours de fractionnement&nbsp;&raquo;</div>
+        <div style="margin-top:8px;padding:8px 10px;background:#FFF3CD;border:1.5px solid var(--g);border-radius:5px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:#856404;cursor:pointer">
+            <input type="checkbox" id="cpSignal" onchange="toggleCpSignal()" style="width:15px;height:15px;accent-color:var(--g);flex-shrink:0">
+            ⚠️ Le nombre de jours calculé me semble incorrect
+          </label>
+          <div id="cpSignalNoteWrap" style="display:none;margin-top:6px">
+            <textarea class="inp" id="cpSignalNote" rows="2" placeholder="Precisez si besoin (ex: jour ferie non pris en compte...)" style="border:1.5px solid var(--g);border-radius:4px"></textarea>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -331,6 +354,14 @@ function calcJ(){
 }
 
 /* ───────── AUTORISATION ABSENCE ───────── */
+function toggleCP(){
+  var cb=ge('chkCP');if(!cb)return;
+  var body=ge('cpBody');if(body)body.style.display=cb.checked?'':'none';
+}
+function toggleCpSignal(){
+  var w=ge('cpSignalNoteWrap');
+  if(w)w.style.display=(ge('cpSignal')&&ge('cpSignal').checked)?'block':'none';
+}
 function toggleAbs(){
   var cb=ge('chkAbs');if(!cb)return;
   var body=ge('absBody');if(body)body.style.display=cb.checked?'':'none';
@@ -446,6 +477,29 @@ function sigToJpeg(areaId,q){
 }
 
 /* ───────── PDF ───────── */
+function freezeTextFields(){
+  var frozen=[];
+  var sel='#wrap input[type="text"]:not([style*="display: none"]), #wrap textarea';
+  document.querySelectorAll(sel).forEach(function(el){
+    if(el.offsetParent===null)return;
+    var val=el.value||'';
+    if(!val.trim())return;
+    var cs=window.getComputedStyle(el);
+    var div=document.createElement('div');
+    div.textContent=val;
+    div.style.cssText='font-family:'+cs.fontFamily+';font-size:'+cs.fontSize+';font-weight:'+cs.fontWeight+';color:'+cs.color+';padding:'+cs.padding+';border-bottom:'+cs.borderBottom+';width:100%;white-space:pre-wrap;word-break:break-word;min-height:'+el.offsetHeight+'px;box-sizing:border-box;background:'+(cs.backgroundColor==='rgba(0, 0, 0, 0)'?'transparent':cs.backgroundColor);
+    el.parentNode.insertBefore(div,el);
+    el.style.display='none';
+    frozen.push({el:el,div:div});
+  });
+  return frozen;
+}
+function unfreezeTextFields(frozen){
+  (frozen||[]).forEach(function(f){
+    if(f.div&&f.div.parentNode)f.div.parentNode.removeChild(f.div);
+    f.el.style.display='';
+  });
+}
 function exportPDF(){if(_isIOS){printPDF();return}spin('PDF...');genPDF(false).then(unspin).catch(unspin)}
 function printPDF(){
   var saved=[];
@@ -463,6 +517,7 @@ async function genPDF(asBlob){
   shields.forEach(function(el){el.style.display='none'});
   var adjPanels=[ge('rhAdjBox'),ge('rhAdjBoxAbs')];
   adjPanels.forEach(function(el){if(el)el.style.visibility='hidden'});
+  var frozenFields=freezeTextFields();
   // Supprimer le cadre/ombre du wrap pour PDF propre
   var wrap=ge('wrap');
   var origShadow=wrap.style.boxShadow,origRadius=wrap.style.borderRadius;
@@ -471,6 +526,7 @@ async function genPDF(asBlob){
   try{
     var cv=await html2canvas(ge('wrap'),{scale:1.0,useCORS:true,logging:false,windowWidth:900});
     saved.forEach(function(s){s.el.value='';s.el.type='date';s.el.value=s.v});
+    unfreezeTextFields(frozenFields);
     var img=cv.toDataURL('image/jpeg',.88);
     var P=window.jspdf.jsPDF;
     var margin=4,pageW=210,pageH=297,maxW=pageW-2*margin,maxH=pageH-2*margin;
@@ -481,7 +537,7 @@ async function genPDF(asBlob){
     pdf.addImage(img,'JPEG',x,y,imgW,imgH);
     if(asBlob)res=pdf.output('blob');
     else{var d=_data||{};pdf.save(('Demande_'+(d.prenom||gv('prenom'))+'_'+(d.nom||gv('nom'))+'.pdf').replace(/\s/g,'-'));res=true}
-  }catch(err){saved.forEach(function(s){s.el.value='';s.el.type='date';s.el.value=s.v});toast('Erreur PDF')}
+  }catch(err){saved.forEach(function(s){s.el.value='';s.el.type='date';s.el.value=s.v});unfreezeTextFields(frozenFields);toast('Erreur PDF')}
   document.querySelectorAll('.modal,#toast,#sp').forEach(function(el){el.style.visibility=''});
   // Restaurer les cadenas et panneaux
   shields.forEach(function(el){el.style.display=''});
@@ -527,7 +583,7 @@ function doSendResp(){
   var svc=gv('service'),nom=gv('nom').trim(),prenom=gv('prenom').trim();
   if(!svc){toast('Sélectionnez votre service');return}
   if(!nom||!prenom){toast('Saisissez votre nom et prénom');return}
-  var hasCp=gv('cpD')&&gv('cpF');
+  var hasCp=ge('chkCP')&&ge('chkCP').checked&&gv('cpD')&&gv('cpF');
   var absData=getAbsData();
   var hasAbs=absData&&absData.motif&&absData.d;
   if(!hasCp&&!hasAbs){toast('Saisissez les dates du congé ou de l\'absence');return}
@@ -535,7 +591,7 @@ function doSendResp(){
   if(absData&&absData.on&&(!absData.h||!absData.j)){toast('Saisissez les heures et le nombre de jours d\'absence');return}
   if(isEmptySig('sigCArea')){toast('Apposez votre signature');return}
   var cpData=null;
-  if(hasCp){cpData={d:gv('cpD'),f:gv('cpF')};var r=countJ(cpData.d,cpData.f);cpData.n=String(r.c);cpData.det=r.fe?'dont '+r.fe+' jour(s) ferié(s)':'';}
+  if(hasCp){cpData={d:gv('cpD'),f:gv('cpF')};var r=countJ(cpData.d,cpData.f);cpData.n=String(r.c);cpData.det=r.fe?'dont '+r.fe+' jour(s) ferié(s)':'';cpData.signal=!!(ge('cpSignal')&&ge('cpSignal').checked);cpData.signalNote=gv('cpSignalNote');}
   var arData=getARData();
   var payload={
     mode:'resp',
@@ -658,6 +714,9 @@ function applyRHAdj(){
   } else if(cpN){
     ge('jrN').textContent=cpN;ge('jrD').textContent='(ajusté RH)';ge('jrBlk').style.display='flex';
   }
+  var cs=ge('cpSignal');if(cs)cs.checked=false;
+  var csn=ge('cpSignalNote');if(csn)csn.value='';
+  var csw=ge('cpSignalNoteWrap');if(csw)csw.style.display='none';
   toast('Ajustements CP appliqués',3000);
 }
 function applyRHAdjAbs(){
@@ -705,7 +764,7 @@ document.addEventListener('DOMContentLoaded',function(){
     ge('badgeTxt').textContent='RH';
     ge('bannerMsg').innerHTML='Demande signée — <button class="btn bgr" style="padding:6px 14px;font-size:12px" onclick="exportPDF()">Télécharger le PDF</button>';
     ge('btnResp').style.display='none';ge('btnDir2').style.display='none';ge('btnRH').style.display='none';
-    ge('btnPDF').textContent='Télécharger PDF';ge('btnReset').style.display='none';ge('btnCal').style.display='';
+    ge('btnPDF').style.display='none';ge('btnReset').style.display='none';ge('btnCal').style.display='';
     var _bz=ge('btnZone'),_bp=ge('btnPDF');
     var adjBtn=document.createElement('button');adjBtn.className='btn bol';adjBtn.textContent='✏️ Ajustement congés payés';adjBtn.style.fontSize='12px';
     adjBtn.onclick=function(){var ab=ge('rhAdjBox');if(ab)ab.style.display=ab.style.display==='none'?'block':'none';};
@@ -714,6 +773,9 @@ document.addEventListener('DOMContentLoaded',function(){
     adjBtnAbs.onclick=function(){var ab=ge('rhAdjBoxAbs');if(ab)ab.style.display=ab.style.display==='none'?'block':'none';};
     if(_bz&&_bp)_bz.insertBefore(adjBtnAbs,_bp);else if(_bz)_bz.appendChild(adjBtnAbs);
     _populateForm(_data);
+    if(_data.cp&&_data.cp.signal){
+      ge('bannerMsg').innerHTML+='<br><span style="color:#C0392B;font-weight:700">⚠️ Le collaborateur signale une erreur possible sur le nombre de jours — vérifiez avant validation.</span>';
+    }
     // Afficher signatures en lecture seule
     if(_data.sigStrokes){showSig('sigCArea',_data.sigStrokes);}
     if(_data.sigRespStrokes){
@@ -809,9 +871,15 @@ function _populateForm(d){
   if(d.nom){ge('nom').value=d.nom}
   if(d.prenom){ge('prenom').value=d.prenom}
   if(d.cp){
+    var cbCP=ge('chkCP');if(cbCP){cbCP.checked=true;toggleCP();}
     if(d.cp.d){var el=ge('cpD');el.type='text';el.value=fD(d.cp.d)}
     if(d.cp.f){var el=ge('cpF');el.type='text';el.value=fD(d.cp.f)}
     if(d.cp.n){ge('jrN').textContent=d.cp.n;ge('jrD').textContent=d.cp.det||'';ge('jrBlk').style.display='flex'}
+    if(d.cp.signal){
+      var cs=ge('cpSignal');if(cs)cs.checked=true;
+      var csn=ge('cpSignalNote');if(csn)csn.value=d.cp.signalNote||'';
+      var csw=ge('cpSignalNoteWrap');if(csw)csw.style.display='block';
+    }
   }
   if(d.abs&&d.abs.on){
     var cb=ge('chkAbs');if(cb){cb.checked=true;toggleAbs();}
