@@ -319,6 +319,13 @@ function ge(i){return document.getElementById(i)}
 function gv(i){var e=ge(i);return e?e.value:''}
 function fNow(){var d=new Date();return d.toLocaleDateString('fr-FR')+' à '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function fD(iso){if(!iso)return'';var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function subjTag(cpData,absData){
+  var tag=cpData&&absData?'[CP+ABS]':cpData?'[CP]':absData?'[ABS]':'[CP/ABS]';
+  var dateStr='';
+  if(cpData)dateStr='du '+fD(cpData.d)+(cpData.f&&cpData.f!==cpData.d?' au '+fD(cpData.f):'');
+  else if(absData)dateStr='du '+fD(absData.d)+(absData.f&&absData.f!==absData.d?' au '+fD(absData.f):'');
+  return{tag:tag,dateStr:dateStr};
+}
 function toast(msg,dur){var t=ge('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},dur||3000)}
 function spin(m){var s=ge('sp');ge('spmsg').textContent=m||'...';s.classList.add('show')}
 function unspin(){ge('sp').classList.remove('show')}
@@ -479,11 +486,16 @@ function sigToJpeg(areaId,q){
 /* ───────── PDF ───────── */
 function freezeTextFields(){
   var frozen=[];
-  var sel='#wrap input[type="text"]:not([style*="display: none"]), #wrap textarea';
+  var sel='#wrap input[type="text"], #wrap input:not([type]), #wrap textarea, #wrap select';
   document.querySelectorAll(sel).forEach(function(el){
-    if(el.offsetParent===null)return;
-    var val=el.value||'';
-    if(!val.trim())return;
+    if(el.offsetParent===null)return; // element cache, on ignore
+    var val;
+    if(el.tagName==='SELECT'){
+      val=(el.selectedIndex>=0&&el.options[el.selectedIndex])?el.options[el.selectedIndex].text:'';
+    } else {
+      val=el.value||'';
+    }
+    if(!val.trim())return; // rien a figer
     var cs=window.getComputedStyle(el);
     var div=document.createElement('div');
     div.textContent=val;
@@ -606,7 +618,8 @@ function doSendResp(){
   if(goDir)payload.mode='dir';
   var dest=goDir?{email:DIR_EMAIL,nom:'DERUY',prenom:'Julien'}:SERVICES[svc];
   if(!dest){toast('Erreur: service non configuré');return}
-  var subj='[CP] Demande de congé — '+prenom+' '+nom+' ('+svc+')';
+  var st=subjTag(hasCp?cpData:null,hasAbs?absData:null);
+  var subj=st.tag+' Demande de congé — '+prenom+' '+nom+' ('+svc+')'+(st.dateStr?' — '+st.dateStr:'');
   var cpLine=hasCp?'CP : du '+fD(cpData.d)+' au '+fD(cpData.f)+' ('+cpData.n+' jours)':'';
   var absLine=hasAbs?'Absence '+absData.motif+(absData.motif==='RTT'?' ('+absData.rttPer+')':'')+' : du '+fD(absData.d)+(absData.f&&absData.f!==absData.d?' au '+fD(absData.f):''):'';
   var body='Bonjour '+dest.prenom+',\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+prenom+' '+nom+'.\n\nService : '+svc+(cpLine?'\n'+cpLine:'')+(absLine?'\n'+absLine:'')+'\n\nLien pour signer :\n\n';
@@ -629,7 +642,8 @@ function doSendDir2(){
     tsR:_tsR,decR:dec,refMR:gv('refMR'),
     sigRespStrokes:getStrokes('sigRArea')
   });
-  var subj='[CP/ABS] Demande à valider — '+_data.prenom+' '+_data.nom+' ('+_data.service+')';
+  var st=subjTag(_data.cp,_data.abs);
+  var subj=st.tag+' Demande à valider — '+_data.prenom+' '+_data.nom+' ('+_data.service+')'+(st.dateStr?' — '+st.dateStr:'');
   var cpInfo=_data.cp?'Du : '+fD(_data.cp.d)+' au '+fD(_data.cp.f)+' ('+_data.cp.n+' jours)':'';
   var absInfo=_data.abs?'Absence '+_data.abs.motif+(_data.abs.motif==='RTT'?' ('+_data.abs.rttPer+')':'')+' : du '+fD(_data.abs.d)+((_data.abs.f&&_data.abs.f!==_data.abs.d)?' au '+fD(_data.abs.f):''):'';
   var body='Bonjour Julien,\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+_data.prenom+' '+_data.nom+'.\n\nService : '+_data.service+(cpInfo?'\n'+cpInfo:'')+(absInfo?'\n'+absInfo:'')+'\nDécision responsable : '+dec+'\n\nLien pour signer :\n\n';
@@ -653,7 +667,8 @@ function doSendRH(){
     tsD:_tsD,decD:dec,refMD:gv('refMD'),
     sigDirStrokes:getStrokes('sigDArea')
   });
-  var subj='[CP]['+d.service+'] Demande signée — '+d.prenom+' '+d.nom;
+  var st=subjTag(d.cp,d.abs);
+  var subj=st.tag+'['+d.service+'] Demande signée — '+d.prenom+' '+d.nom+(st.dateStr?' — '+st.dateStr:'');
   var body='Bonjour,\n\nVeuillez trouver ci-dessous le lien pour télécharger la demande de congé signée de '+d.prenom+' '+d.nom+' ('+d.service+').\n\nLien pour télécharger le PDF :\n\n';
   var longUrl=BASE_URL+'?r='+encodeURIComponent(JSON.stringify(payload));
   spin('Génération du lien...');
