@@ -319,6 +319,16 @@ function ge(i){return document.getElementById(i)}
 function gv(i){var e=ge(i);return e?e.value:''}
 function fNow(){var d=new Date();return d.toLocaleDateString('fr-FR')+' à '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function fD(iso){if(!iso)return'';var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+var N8N_LOG='https://edgard-opticiens.app.n8n.cloud/webhook/log-demande';
+function logToSheet(payload){
+  fetch(N8N_LOG,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
+}
+function makeId(d){
+  var debut=(d.cp&&d.cp.d)||(d.abs&&d.abs.d)||new Date().toISOString().slice(0,10);
+  return (d.service||'')+'_'+(d.nom||'')+'_'+(d.prenom||'')+'_'+debut;
+}
+function logType(d){return (d.cp?'CP':'')+(d.abs&&d.abs.on?(d.cp?'+':'')+'ABS':'')}
+function logDates(d){return {debut:(d.cp&&d.cp.d)||(d.abs&&d.abs.d)||'',fin:(d.cp&&d.cp.f)||(d.abs&&d.abs.f)||''}}
 function subjTag(cpData,absData){
   var tag=cpData&&absData?'[CP+ABS]':cpData?'[CP]':absData?'[ABS]':'[CP/ABS]';
   var dateStr='';
@@ -626,6 +636,12 @@ function doSendResp(){
   spin('Génération du lien...');
   shortenUrl(buildUrl(payload,'d'),function(url){
     unspin();
+    logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
+      nom:nom,prenom:prenom,type:logType(payload),
+      date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+      etape:goDir?'direction':'responsable',statut:'en_attente',
+      en_attente_nom:dest.prenom+' '+dest.nom,en_attente_email:dest.email,
+      date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
     sendMail(dest.email,subj,body+url+'\n\nCordialement,\n'+prenom+' '+nom);
   });
 }
@@ -650,6 +666,12 @@ function doSendDir2(){
   spin('Génération du lien...');
   shortenUrl(BASE_URL+'?d='+encodeURIComponent(JSON.stringify(payload)),function(url){
     unspin();
+    logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
+      nom:payload.nom,prenom:payload.prenom,type:logType(payload),
+      date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+      etape:'direction',statut:'en_attente',
+      en_attente_nom:'DERUY Julien',en_attente_email:DIR_EMAIL,
+      date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
     sendMail(DIR_EMAIL,subj,body+url+'\n\nCordialement,\n'+gv('respPrenom')+' '+gv('respNom'));
   });
 }
@@ -674,6 +696,12 @@ function doSendRH(){
   spin('Génération du lien...');
   shortenUrl(longUrl,function(url){
     unspin();
+    logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
+      nom:payload.nom,prenom:payload.prenom,type:logType(payload),
+      date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+      etape:'rh',statut:'attente_telechargement',
+      en_attente_nom:'RH',en_attente_email:RH_EMAIL,
+      date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
     if(_isIOS){
       sendMail(RH_EMAIL,subj,body+url+'\n\nCordialement,\n'+gv('dirPrenom')+' '+gv('dirNom'));
       return;
@@ -747,6 +775,17 @@ function applyRHAdjAbs(){
   if(absJ)setRH('absJ',absJ);
   toast('Ajustements absence appliqués',3000);
 }
+/* ───────── VALIDATION FINALE RH ───────── */
+var _rhLogged=false;
+function logRHValide(){
+  if(_rhLogged||!_data)return;_rhLogged=true;
+  logToSheet({id:makeId(_data),societe:'Edgard Développement',
+    nom:_data.nom,prenom:_data.prenom,type:logType(_data),
+    date_debut:logDates(_data).debut,date_fin:logDates(_data).fin,
+    etape:'termine',statut:'telecharge',
+    en_attente_nom:'',en_attente_email:'',
+    date_derniere_action:new Date().toISOString(),relance_envoyee:''});
+}
 /* ───────── RESET ───────── */
 function resetForm(){
   ['service','nom','prenom','cpD','cpF','respNom','respPrenom','dirNom','dirPrenom','refMR','refMD','arDate'].forEach(function(i){var el=ge(i);if(el)el.value=''});
@@ -777,7 +816,7 @@ document.addEventListener('DOMContentLoaded',function(){
     /* MODE RH : lecture seule */
     ge('banner').className='banner bdrh';
     ge('badgeTxt').textContent='RH';
-    ge('bannerMsg').innerHTML='Demande signée — <button class="btn bgr" style="padding:6px 14px;font-size:12px" onclick="exportPDF()">Télécharger le PDF</button>';
+    ge('bannerMsg').innerHTML='Demande signée — <button class="btn bgr" style="padding:6px 14px;font-size:12px" onclick="logRHValide();exportPDF()">Télécharger le PDF</button>';
     ge('btnResp').style.display='none';ge('btnDir2').style.display='none';ge('btnRH').style.display='none';
     ge('btnPDF').style.display='none';ge('btnReset').style.display='none';ge('btnCal').style.display='';
     var _bz=ge('btnZone'),_bp=ge('btnPDF');
