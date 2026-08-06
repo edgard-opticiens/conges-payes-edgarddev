@@ -310,7 +310,7 @@ body{background:#fff;padding:0;}
 var SERVICES={
   'Santé visuelle':{email:'m.desbois@groupe-edgard.com',nom:'DECLERCK-DESBOIS',prenom:'Mathieu'},
   'Communication':{email:'s.franck@groupe-edgard.com',nom:'FRANCK',prenom:'Samuel'},
-  'Comptabilité':{email:'b.dedieuleveult@groupe-edgard.com',nom:'DE DIEULEVEULT',prenom:'Baptiste'},
+  'Comptabilité':{emails:['d.libre@groupe-edgard.com','l.costanobre@groupe-edgard.com'],nom:'LIBRE',prenom:'Déborah'},
   'Ressources Humaines':{email:'f.lacroix@groupe-edgard.com',nom:'LA CROIX',prenom:'Fabienne'},
   'Finance':{email:'b.dedieuleveult@groupe-edgard.com',nom:'DE DIEULEVEULT',prenom:'Baptiste'},
   'Télé-Opératrice':{email:'m.fillatre@groupe-edgard.com',nom:'FILLATRE',prenom:'Morgane'},
@@ -699,6 +699,7 @@ function doSendResp(){
   if(goDir)payload.mode='dir';
   var dest=goDir?{email:DIR_EMAIL,nom:'DERUY',prenom:'Julien'}:SERVICES[svc];
   if(!dest){toast('Erreur: service non configuré');return}
+  var destEmails=dest.emails||(dest.email?[dest.email]:[]);
   var st=subjTag(hasCp?cpData:null,hasAbs?absData:null);
   var subj=st.tag+' Demande de congé — '+prenom+' '+nom+' ('+svc+')'+(st.dateStr?' — '+st.dateStr:'');
   var cpLine=hasCp?'CP : du '+fD(cpData.d)+' au '+fD(cpData.f)+' ('+cpData.n+' jours)':'';
@@ -708,7 +709,7 @@ function doSendResp(){
   spin('Génération du lien...');
   shortenUrl(buildUrl(payload,'d'),function(url){
     unspin();
-    openEmailModal(goDir?'Envoyer à la Direction':'Envoyer au responsable',[dest.email],function(emails){
+    openEmailModal(goDir?'Envoyer à la Direction':'Envoyer au responsable',destEmails,function(emails){
       spin('Envoi en cours...');
       sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'['+svc+'] '+hdr,body:body+url+'\n\nCordialement,\n'+prenom+' '+nom})
         .then(function(){unspin();toast('Demande envoyee');})
