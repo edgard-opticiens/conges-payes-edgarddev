@@ -87,6 +87,18 @@ textarea.inp{border:1.5px solid var(--bd);border-radius:4px;padding:5px 8px;resi
 @keyframes rot{to{transform:rotate(360deg)}}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--dk);color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:500;transition:transform .3s;z-index:9999;pointer-events:none;max-width:400px;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0)}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.mbox{background:#fff;border-radius:12px;max-width:500px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.mttl{font-size:17px;font-weight:700;color:var(--dk);margin-bottom:12px}
+.emlRow{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+.emlRow input{flex:1;border:1.5px solid var(--bd);border-radius:6px;padding:8px 10px;font-size:13px}
+.emlDel{background:none;border:none;color:#D9534F;font-size:18px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0}
+.emlAdd{background:none;border:1.5px dashed var(--bd);border-radius:6px;padding:7px 12px;font-size:12px;color:var(--g);cursor:pointer;width:100%;margin-bottom:14px}
+.emlAdd:hover{background:var(--lt)}
+.mbtn{border:none;border-radius:6px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer}
+.mbtnGo{background:var(--g);color:#fff}
+.mbtnNo{background:var(--lt);color:var(--dk);border:1px solid var(--bd)}
 @media(max-width:600px){.sigs3,.sigs3.finance{grid-template-columns:1fr}.r2,.dg{grid-template-columns:1fr}}
 @media print{
 *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
@@ -101,6 +113,18 @@ body{background:#fff;padding:0;}
 <body>
 <div id="sp"><div class="spi"></div><span id="spmsg">...</span></div>
 <div id="toast"></div>
+
+<div class="modal" id="mdlEmails">
+  <div class="mbox">
+    <div class="mttl" id="emlTitle">Destinataires</div>
+    <div id="emailFields"></div>
+    <button type="button" class="emlAdd" onclick="addEmailField('')">+ Ajouter une adresse</button>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="mbtn mbtnNo" onclick="closeM('mdlEmails')">Annuler</button>
+      <button class="mbtn mbtnGo" onclick="confirmEmails()">Envoyer</button>
+    </div>
+  </div>
+</div>
 
 <div class="banner bc" id="banner">
   <span class="badge" id="badgeTxt">Collaborateur</span>
@@ -337,6 +361,53 @@ function subjTag(cpData,absData){
   return{tag:tag,dateStr:dateStr};
 }
 function toast(msg,dur){var t=ge('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},dur||3000)}
+
+/* --- Modale multi-destinataires (envoi silencieux) --- */
+var N8N_MAIL='https://edgard-opticiens.app.n8n.cloud/webhook/envoi-mail-conges';
+var _emlCallback=null;
+function closeM(id){var e=ge(id);if(e)e.classList.remove('show')}
+window.addEventListener('click',function(e){if(e.target.classList.contains('modal'))e.target.classList.remove('show')});
+function addEmailField(val){
+  var row=document.createElement('div');row.className='emlRow';
+  var inp=document.createElement('input');
+  inp.type='email';inp.placeholder='adresse@groupe-edgard.com';inp.value=val||'';inp.required=true;
+  var del=document.createElement('button');del.type='button';del.className='emlDel';del.innerHTML='&times;';
+  del.onclick=function(){
+    var fields=ge('emailFields');
+    if(fields.children.length>1)fields.removeChild(row);else inp.value='';
+  };
+  row.appendChild(inp);row.appendChild(del);
+  ge('emailFields').appendChild(row);
+}
+function openEmailModal(title,prefill,cb){
+  ge('emlTitle').textContent=title;
+  var fields=ge('emailFields');fields.innerHTML='';
+  if(prefill&&prefill.length){prefill.forEach(function(e){addEmailField(e)});}
+  else{addEmailField('');}
+  _emlCallback=cb;
+  ge('mdlEmails').classList.add('show');
+}
+function confirmEmails(){
+  var inputs=ge('emailFields').querySelectorAll('input[type="email"]');
+  var emails=[];var bad=false;
+  inputs.forEach(function(i){
+    var v=i.value.trim();
+    if(!v)return;
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){bad=true;i.style.borderColor='#D9534F';}
+    else emails.push(v);
+  });
+  if(bad){toast('Une adresse saisie n\'est pas valide');return;}
+  if(!emails.length){toast('Saisissez au moins une adresse');return;}
+  var cb=_emlCallback;
+  ge('mdlEmails').classList.remove('show');
+  if(cb)cb(emails);
+}
+function sendMailSilent(payload){
+  return fetch(N8N_MAIL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+}
+function mailHeader(societe,nom,prenom,dateStr){
+  return 'EDGARD DEV - '+(societe?societe.toUpperCase()+' - ':'')+(nom||'').toUpperCase()+' '+(prenom||'')+(dateStr?' - '+dateStr:'');
+}
 function spin(m){var s=ge('sp');ge('spmsg').textContent=m||'...';s.classList.add('show')}
 function unspin(){ge('sp').classList.remove('show')}
 
@@ -632,17 +703,23 @@ function doSendResp(){
   var subj=st.tag+' Demande de congé — '+prenom+' '+nom+' ('+svc+')'+(st.dateStr?' — '+st.dateStr:'');
   var cpLine=hasCp?'CP : du '+fD(cpData.d)+' au '+fD(cpData.f)+' ('+cpData.n+' jours)':'';
   var absLine=hasAbs?'Absence '+absData.motif+(absData.motif==='RTT'?' ('+absData.rttPer+')':'')+' : du '+fD(absData.d)+(absData.f&&absData.f!==absData.d?' au '+fD(absData.f):''):'';
-  var body='Bonjour '+dest.prenom+',\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+prenom+' '+nom+'.\n\nService : '+svc+(cpLine?'\n'+cpLine:'')+(absLine?'\n'+absLine:'')+'\n\nLien pour signer :\n\n';
+  var hdr=mailHeader(svc,nom,prenom,st.dateStr);
+  var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour '+dest.prenom+',\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+prenom+' '+nom+'.\n\nService : '+svc+(cpLine?'\n'+cpLine:'')+(absLine?'\n'+absLine:'')+'\n\nLien pour signer :\n\n';
   spin('Génération du lien...');
   shortenUrl(buildUrl(payload,'d'),function(url){
     unspin();
-    logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
-      nom:nom,prenom:prenom,type:logType(payload),
-      date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
-      etape:goDir?'direction':'responsable',statut:'en_attente',
-      en_attente_nom:dest.prenom+' '+dest.nom,en_attente_email:dest.email,
-      date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
-    sendMail(dest.email,subj,body+url+'\n\nCordialement,\n'+prenom+' '+nom);
+    openEmailModal(goDir?'Envoyer à la Direction':'Envoyer au responsable',[dest.email],function(emails){
+      spin('Envoi en cours...');
+      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'['+svc+'] '+hdr,body:body+url+'\n\nCordialement,\n'+prenom+' '+nom})
+        .then(function(){unspin();toast('Demande envoyee');})
+        .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
+      logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
+        nom:nom,prenom:prenom,type:logType(payload),
+        date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+        etape:goDir?'direction':'responsable',statut:'en_attente',
+        en_attente_nom:dest.prenom+' '+dest.nom,en_attente_email:emails.join(', '),
+        date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
+    });
   });
 }
 
@@ -662,17 +739,23 @@ function doSendDir2(){
   var subj=st.tag+' Demande à valider — '+_data.prenom+' '+_data.nom+' ('+_data.service+')'+(st.dateStr?' — '+st.dateStr:'');
   var cpInfo=_data.cp?'Du : '+fD(_data.cp.d)+' au '+fD(_data.cp.f)+' ('+_data.cp.n+' jours)':'';
   var absInfo=_data.abs?'Absence '+_data.abs.motif+(_data.abs.motif==='RTT'?' ('+_data.abs.rttPer+')':'')+' : du '+fD(_data.abs.d)+((_data.abs.f&&_data.abs.f!==_data.abs.d)?' au '+fD(_data.abs.f):''):'';
-  var body='Bonjour Julien,\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+_data.prenom+' '+_data.nom+'.\n\nService : '+_data.service+(cpInfo?'\n'+cpInfo:'')+(absInfo?'\n'+absInfo:'')+'\nDécision responsable : '+dec+'\n\nLien pour signer :\n\n';
+  var hdr=mailHeader(_data.service,_data.nom,_data.prenom,st.dateStr);
+  var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour Julien,\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+_data.prenom+' '+_data.nom+'.\n\nService : '+_data.service+(cpInfo?'\n'+cpInfo:'')+(absInfo?'\n'+absInfo:'')+'\nDécision responsable : '+dec+'\n\nLien pour signer :\n\n';
   spin('Génération du lien...');
   shortenUrl(BASE_URL+'?d='+encodeURIComponent(JSON.stringify(payload)),function(url){
     unspin();
-    logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
-      nom:payload.nom,prenom:payload.prenom,type:logType(payload),
-      date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
-      etape:'direction',statut:'en_attente',
-      en_attente_nom:'DERUY Julien',en_attente_email:DIR_EMAIL,
-      date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
-    sendMail(DIR_EMAIL,subj,body+url+'\n\nCordialement,\n'+gv('respPrenom')+' '+gv('respNom'));
+    openEmailModal('Envoyer à la Direction',[DIR_EMAIL],function(emails){
+      spin('Envoi en cours...');
+      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[DIRECTION] '+hdr,body:body+url+'\n\nCordialement,\n'+gv('respPrenom')+' '+gv('respNom')})
+        .then(function(){unspin();toast('Demande envoyee a la Direction');})
+        .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
+      logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
+        nom:payload.nom,prenom:payload.prenom,type:logType(payload),
+        date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+        etape:'direction',statut:'en_attente',
+        en_attente_nom:'DERUY Julien',en_attente_email:emails.join(', '),
+        date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
+    });
   });
 }
 
@@ -690,20 +773,26 @@ function doSendRH(){
     sigDirStrokes:getStrokes('sigDArea')
   });
   var st=subjTag(d.cp,d.abs);
-  var subj=st.tag+'['+d.service+'] Demande signée — '+d.prenom+' '+d.nom+(st.dateStr?' — '+st.dateStr:'');
-  var body='Bonjour,\n\nVeuillez trouver ci-dessous le lien pour télécharger la demande de congé signée de '+d.prenom+' '+d.nom+' ('+d.service+').\n\nLien pour télécharger le PDF :\n\n';
+  var hdr=mailHeader(d.service,d.nom,d.prenom,st.dateStr);
+  var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour,\n\nVeuillez trouver ci-dessous le lien pour télécharger la demande de congé signée de '+d.prenom+' '+d.nom+' ('+d.service+').\n\nLien pour télécharger le PDF :\n\n';
   var longUrl=BASE_URL+'?r='+encodeURIComponent(JSON.stringify(payload));
   spin('Génération du lien...');
   shortenUrl(longUrl,function(url){
     unspin();
-    logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
-      nom:payload.nom,prenom:payload.prenom,type:logType(payload),
-      date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
-      etape:'rh',statut:'attente_telechargement',
-      en_attente_nom:'RH',en_attente_email:RH_EMAIL,
-      date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
+    function finish(emails){
+      spin('Envoi en cours...');
+      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[RH] '+hdr,body:body+url+'\n\nCordialement,\n'+gv('dirPrenom')+' '+gv('dirNom')})
+        .then(function(){unspin();toast('Demande envoyee aux RH');})
+        .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
+      logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
+        nom:payload.nom,prenom:payload.prenom,type:logType(payload),
+        date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+        etape:'rh',statut:'attente_telechargement',
+        en_attente_nom:'RH',en_attente_email:emails.join(', '),
+        date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
+    }
     if(_isIOS){
-      sendMail(RH_EMAIL,subj,body+url+'\n\nCordialement,\n'+gv('dirPrenom')+' '+gv('dirNom'));
+      openEmailModal('Envoyer aux RH',[RH_EMAIL],finish);
       return;
     }
     genPDF(true).then(function(blob){
@@ -714,7 +803,7 @@ function doSendRH(){
         document.body.appendChild(a);a.click();document.body.removeChild(a);
         setTimeout(function(){URL.revokeObjectURL(burl)},3000);
       }
-      setTimeout(function(){sendMail(RH_EMAIL,subj,body+url+'\n\nCordialement,\n'+gv('dirPrenom')+' '+gv('dirNom'))},600);
+      openEmailModal('Envoyer aux RH',[RH_EMAIL],finish);
     });
   });
 }
