@@ -663,6 +663,16 @@ function shortenUrl(url,cb){
     })
     .catch(function(){clearTimeout(t1);tryTiny()});
 }
+/* ───────── Stockage payload (évite les URL trop longues) ───────── */
+var PAYLOAD_SAVE_URL='https://edgard-opticiens.app.n8n.cloud/webhook/conges-dev-payload-save';
+var PAYLOAD_GET_URL='https://edgard-opticiens.app.n8n.cloud/webhook/conges-dev-payload-get';
+function makeShortId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function saveLongPayload(payload,cb){
+  var id=makeShortId();
+  fetch(PAYLOAD_SAVE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,data:JSON.stringify(payload)})})
+    .then(function(){cb(BASE_URL+'?id='+id);})
+    .catch(function(){cb(BASE_URL+'?id='+id);}); // le lien reste valide même si la confirmation réseau échoue
+}
 function buildUrl(data,paramName){
   var encoded=encodeURIComponent(JSON.stringify(data));
   return BASE_URL+'?'+(paramName||'d')+'='+encoded;
@@ -707,7 +717,7 @@ function doSendResp(){
   var hdr=mailHeader(svc,nom,prenom,st.dateStr);
   var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour '+dest.prenom+',\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+prenom+' '+nom+'.\n\nService : '+svc+(cpLine?'\n'+cpLine:'')+(absLine?'\n'+absLine:'')+'\n\nLien pour signer :\n\n';
   spin('Génération du lien...');
-  shortenUrl(buildUrl(payload,'d'),function(url){
+  saveLongPayload(payload,function(url){
     unspin();
     openEmailModal(goDir?'Envoyer à la Direction':'Envoyer au responsable',destEmails,function(emails){
       spin('Envoi en cours...');
@@ -743,7 +753,7 @@ function doSendDir2(){
   var hdr=mailHeader(_data.service,_data.nom,_data.prenom,st.dateStr);
   var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour Julien,\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+_data.prenom+' '+_data.nom+'.\n\nService : '+_data.service+(cpInfo?'\n'+cpInfo:'')+(absInfo?'\n'+absInfo:'')+'\nDécision responsable : '+dec+'\n\nLien pour signer :\n\n';
   spin('Génération du lien...');
-  shortenUrl(BASE_URL+'?d='+encodeURIComponent(JSON.stringify(payload)),function(url){
+  saveLongPayload(payload,function(url){
     unspin();
     openEmailModal('Envoyer à la Direction',[DIR_EMAIL],function(emails){
       spin('Envoi en cours...');
@@ -776,9 +786,8 @@ function doSendRH(){
   var st=subjTag(d.cp,d.abs);
   var hdr=mailHeader(d.service,d.nom,d.prenom,st.dateStr);
   var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour,\n\nVeuillez trouver ci-dessous le lien pour télécharger la demande de congé signée de '+d.prenom+' '+d.nom+' ('+d.service+').\n\nLien pour télécharger le PDF :\n\n';
-  var longUrl=BASE_URL+'?r='+encodeURIComponent(JSON.stringify(payload));
   spin('Génération du lien...');
-  shortenUrl(longUrl,function(url){
+  saveLongPayload(payload,function(url){
     unspin();
     function finish(emails){
       spin('Envoi en cours...');
@@ -891,17 +900,36 @@ document.addEventListener('DOMContentLoaded',function(){
   ge('today').textContent=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   var search=window.location.search;
 
-  // Lire ?r= (mode RH)
+  // Lire ?id= (nouveau système : payload stocké côté serveur, léger dans l'URL)
+  var mi=search.match(/[?&]id=([^&]*)/);
+  if(mi){
+    var pid=decodeURIComponent(mi[1]);
+    fetch(PAYLOAD_GET_URL+'?id='+encodeURIComponent(pid))
+      .then(function(r){return r.json()})
+      .then(function(res){
+        if(res&&res.data){
+          try{_data=JSON.parse(res.data);_mode=_data.mode||'resp';}catch(e){}
+        }
+        renderPage();
+      })
+      .catch(function(){renderPage();});
+    return;
+  }
+
+  // Lire ?r= (mode RH) — ancien système, conservé pour compatibilité
   var mr=search.match(/[?&]r=([^&]*)/);
   if(mr){
     try{_data=JSON.parse(decodeURIComponent(mr[1]));_mode='rh';}catch(e){}
   }
-  // Lire ?d= (mode resp ou dir)
+  // Lire ?d= (mode resp ou dir) — ancien système, conservé pour compatibilité
   var md=search.match(/[?&]d=([^&]*)/);
   if(md&&!_data){
     try{_data=JSON.parse(decodeURIComponent(md[1]));_mode=_data.mode||'resp';}catch(e){}
   }
+  renderPage();
+});
 
+function renderPage(){
   if(_mode==='rh'&&_data){
     /* MODE RH : lecture seule */
     ge('banner').className='banner bdrh';
@@ -1004,7 +1032,7 @@ document.addEventListener('DOMContentLoaded',function(){
   ge('sigVille').textContent='Tours,';ge('sigSep').textContent=' ';
   initSvgSig('sigCArea','tsC','_tsC');
   updService();
-});
+}
 
 function _populateForm(d){
   if(d.annuleRemplace&&d.annuleRemplace.on){
