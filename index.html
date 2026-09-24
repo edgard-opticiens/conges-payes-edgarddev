@@ -241,7 +241,7 @@ body{background:#fff;padding:0;}
           <div class="fg"><label class="lbl">Date fin</label><input class="inp" type="date" id="absF"></div>
         </div>
         <div class="dg" id="absHJBox">
-          <div class="fg"><label class="lbl">Heures d'absence</label><input class="inp" id="absH" placeholder="ex : 7h"></div>
+          <div class="fg" id="absHBox"><label class="lbl">Heures d'absence</label><input class="inp" id="absH" placeholder="ex : 7h"></div>
           <div class="fg"><label class="lbl">Nombre de jours</label><input class="inp" id="absJ" placeholder="ex : 1"></div>
         </div>
       </div>
@@ -459,6 +459,7 @@ function onMotif(){
   var isRTT=(v==='RTT');
   var rttBox=ge('rttPerBox');if(rttBox)rttBox.style.display=isRTT?'':'none';
   var hjBox=ge('absHJBox');if(hjBox)hjBox.style.display='';
+  var hBox=ge('absHBox');if(hBox)hBox.style.display=isRTT?'none':'';
   var evtBox=ge('evtBox');if(evtBox)evtBox.style.display=(v==='Evt Fam')?'':'none';
 }
 function getAbsData(){
@@ -471,7 +472,7 @@ function getAbsData(){
     detail:(motif==='Evt Fam')?gv('evtDetail'):'',
     rttPer:isRTT?gv('rttPer'):'',
     d:gv('absD'),f:gv('absF'),
-    h:gv('absH'),
+    h:isRTT?'':gv('absH'),
     j:gv('absJ')
   };
 }
@@ -640,29 +641,6 @@ async function genPDF(asBlob){
   return res;
 }
 
-/* ───────── RACCOURCISSEMENT URL ───────── */
-function shortenUrl(url,cb){
-  if(url.startsWith('file://')){cb(url);return}
-  var done=false;
-  function done_(u){if(!done){done=true;cb(u)}}
-  // Essayer TinyURL en dernier recours
-  function tryTiny(){
-    var t2=setTimeout(function(){done_(url)},4000);
-    fetch('https://tinyurl.com/api-create.php?url='+encodeURIComponent(url))
-      .then(function(r){return r.text()})
-      .then(function(t){clearTimeout(t2);var s=(t||'').trim();done_(s.startsWith('http')?s:url)})
-      .catch(function(){clearTimeout(t2);done_(url)});
-  }
-  // Essayer is.gd en premier
-  var t1=setTimeout(function(){tryTiny()},4000); // timeout is.gd → passer à TinyURL
-  fetch('https://is.gd/create.php?format=json&url='+encodeURIComponent(url))
-    .then(function(r){return r.json()})
-    .then(function(res){
-      clearTimeout(t1);
-      if(res&&res.shorturl){done_(res.shorturl)}else{tryTiny()}
-    })
-    .catch(function(){clearTimeout(t1);tryTiny()});
-}
 /* ───────── Stockage payload (évite les URL trop longues) ───────── */
 var PAYLOAD_SAVE_URL='https://edgard-opticiens.app.n8n.cloud/webhook/conges-dev-payload-save';
 var PAYLOAD_GET_URL='https://edgard-opticiens.app.n8n.cloud/webhook/conges-dev-payload-get';
@@ -670,8 +648,8 @@ function makeShortId(){return Date.now().toString(36)+Math.random().toString(36)
 function saveLongPayload(payload,cb){
   var id=makeShortId();
   fetch(PAYLOAD_SAVE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,data:JSON.stringify(payload)})})
-    .then(function(){cb(BASE_URL+'?id='+id);})
-    .catch(function(){cb(BASE_URL+'?id='+id);}); // le lien reste valide même si la confirmation réseau échoue
+    .then(function(r){if(!r.ok)throw new Error('save failed');cb(BASE_URL+'?id='+id);})
+    .catch(function(){cb(buildUrl(payload,'d'));}); // si la sauvegarde echoue, lien complet (JSON dans l'URL) pour ne jamais casser l'envoi
 }
 function buildUrl(data,paramName){
   var encoded=encodeURIComponent(JSON.stringify(data));
@@ -691,7 +669,8 @@ function doSendResp(){
   var hasAbs=absData&&absData.motif&&absData.d;
   if(!hasCp&&!hasAbs){toast('Saisissez les dates du congé ou de l\'absence');return}
   if(absData&&absData.motif==='RTT'&&!absData.rttPer){toast('Précisez la période du RTT : Matin, Après-midi ou Journée entière');return}
-  if(absData&&absData.on&&(!absData.h||!absData.j)){toast('Saisissez les heures et le nombre de jours d\'absence');return}
+  if(absData&&absData.on&&absData.motif!=='RTT'&&(!absData.h||!absData.j)){toast('Saisissez les heures et le nombre de jours d\'absence');return}
+  if(absData&&absData.on&&absData.motif==='RTT'&&!absData.j){toast('Saisissez le nombre de jours d\'absence');return}
   if(isEmptySig('sigCArea')){toast('Apposez votre signature');return}
   var cpData=null;
   if(hasCp){cpData={d:gv('cpD'),f:gv('cpF')};var r=countJ(cpData.d,cpData.f);cpData.n=String(r.c);cpData.det=r.fe?'dont '+r.fe+' jour(s) ferié(s)':'';cpData.signal=!!(ge('cpSignal')&&ge('cpSignal').checked);cpData.signalNote=gv('cpSignalNote');}
