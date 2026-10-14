@@ -656,9 +656,17 @@ var PAYLOAD_SAVE_URL='https://edgard-opticiens.app.n8n.cloud/webhook/conges-dev-
 var PAYLOAD_GET_URL='https://edgard-opticiens.app.n8n.cloud/webhook/conges-dev-payload-get';
 function makeShortId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function saveLongPayload(payload,cb){
-  var id=makeShortId();
-  fetch(PAYLOAD_SAVE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,data:JSON.stringify(payload)})})
-    .then(function(r){if(!r.ok)throw new Error('save failed');cb(BASE_URL+'?id='+id);})
+  // Le serveur genere desormais lui-meme l'identifiant de stockage (aleatoire fort cote n8n,
+  // durcissement du 2026-10-14) et ignore volontairement celui propose par la page : il faut
+  // donc utiliser l'id renvoye dans la reponse, pas celui genere ici. Avant ce correctif, le
+  // lien envoye au responsable/a la direction/RH pointait vers un id jamais enregistre nulle
+  // part cote serveur — la demande ne pouvait donc plus jamais etre relue (motif y compris).
+  fetch(PAYLOAD_SAVE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:JSON.stringify(payload)})})
+    .then(function(r){if(!r.ok)throw new Error('save failed');return r.json();})
+    .then(function(res){
+      if(!res||!res.ok||!res.id)throw new Error('save failed');
+      cb(BASE_URL+'?id='+res.id);
+    })
     .catch(function(){cb(buildUrl(payload,'d'));}); // si la sauvegarde echoue, lien complet (JSON dans l'URL) pour ne jamais casser l'envoi
 }
 function buildUrl(data,paramName){
