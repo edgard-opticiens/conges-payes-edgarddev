@@ -418,6 +418,33 @@ function sendMailSilent(payload){
 function mailHeader(societe,nom,prenom,dateStr){
   return 'EDGARD DEV - '+(societe?societe.toUpperCase()+' - ':'')+(nom||'').toUpperCase()+' '+(prenom||'')+(dateStr?' - '+dateStr:'');
 }
+/* ---------- Mail habillé (HTML, même gabarit que congés-payés/heures sup/NDF) ---------- */
+var BRAND={acc:'#C9A84C',accD:'#A97A2E',soft:'#F6EFD9',nom:'EDGARD',txt:'#1A1A1A'};
+function escHtmlED(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function infoRowED(l,v){return '<tr><td style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#666666;width:150px;">'+l+'</td><td style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1A1A1A;font-weight:700;">'+v+'</td></tr>';}
+function mailBodyHtmlED(eyebrow,titre,texte,d,link,ctaLabel){
+  var cpInfo=(d.cp&&d.cp.d&&d.cp.f)?('CP : du '+fD(d.cp.d)+' au '+fD(d.cp.f)+(d.cp.n?' ('+d.cp.n+' jours)':'')):'';
+  var absInfo=(d.abs&&d.abs.on&&d.abs.d)?('Absence '+(d.abs.motif||'')+' : du '+fD(d.abs.d)+((d.abs.f&&d.abs.f!==d.abs.d)?' au '+fD(d.abs.f):'')):'';
+  var rows=infoRowED('Collaborateur',escHtmlED((d.prenom||'')+' '+(d.nom||'').toUpperCase()))+
+    (d.service?infoRowED('Service',escHtmlED(d.service)):'')+
+    (cpInfo?infoRowED('Demande',escHtmlED(cpInfo)):'')+
+    (absInfo?infoRowED('Demande',escHtmlED(absInfo)):'');
+  var href=escHtmlED(link);
+  return ' <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F2EFE8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;"><tr><td align="center">'+
+   '<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:10px;overflow:hidden;">'+
+   '<tr><td style="background:'+BRAND.acc+';padding:20px 32px;"><span style="font-family:Georgia,\'Times New Roman\',serif;color:'+BRAND.txt+';font-size:20px;font-weight:700;letter-spacing:.03em;">'+BRAND.nom+'</span>'+
+   '<span style="font-family:Arial,Helvetica,sans-serif;color:'+BRAND.txt+';opacity:.85;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-left:10px;">Edgard Développement</span></td></tr>'+
+   '<tr><td style="padding:32px 32px 28px;">'+
+   '<p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:'+BRAND.accD+';">'+eyebrow+'</p>'+
+   '<h1 style="margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;color:#1A1A1A;">'+titre+'</h1>'+
+   '<p style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#333333;">'+texte+'</p>'+
+   '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:'+BRAND.soft+';border-radius:8px;padding:10px 14px;margin:6px 0 0;"><tr><td style="padding:8px 14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">'+rows+'</table></td></tr></table>'+
+   '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 6px;"><tr><td bgcolor="'+BRAND.acc+'" style="border-radius:6px;"><a href="'+href+'" style="display:inline-block;padding:13px 26px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:'+BRAND.txt+';text-decoration:none;">'+ctaLabel+'</a></td></tr></table>'+
+   '<p style="margin:8px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#999999;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:<br><a href="'+href+'" style="color:'+BRAND.accD+';word-break:break-all;">'+href+'</a></p>'+
+   '</td></tr>'+
+   '<tr><td style="padding:16px 32px;background:#F9F7F2;border-top:1px solid #E0DCD0;"><p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#999999;">Envoi automatique — merci de ne pas répondre à cet e-mail.</p></td></tr>'+
+   '</table></td></tr></table>';
+}
 function spin(m){var s=ge('sp');ge('spmsg').textContent=m||'...';s.classList.add('show')}
 function unspin(){ge('sp').classList.remove('show')}
 
@@ -708,17 +735,15 @@ function doSendResp(){
   if(!dest){toast('Erreur: service non configuré');return}
   var destEmails=dest.emails||(dest.email?[dest.email]:[]);
   var st=subjTag(hasCp?cpData:null,hasAbs?absData:null);
-  var subj=st.tag+' Demande de congé — '+prenom+' '+nom+' ('+svc+')'+(st.dateStr?' — '+st.dateStr:'');
-  var cpLine=hasCp?'CP : du '+fD(cpData.d)+' au '+fD(cpData.f)+' ('+cpData.n+' jours)':'';
-  var absLine=hasAbs?'Absence '+absData.motif+(absData.motif==='RTT'?' ('+absData.rttPer+')':'')+' : du '+fD(absData.d)+(absData.f&&absData.f!==absData.d?' au '+fD(absData.f):''):'';
   var hdr=mailHeader(svc,nom,prenom,st.dateStr);
-  var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour '+dest.prenom+',\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+prenom+' '+nom+'.\n\nService : '+svc+(cpLine?'\n'+cpLine:'')+(absLine?'\n'+absLine:'')+'\n\nLien pour signer :\n\n';
   spin('Génération du lien...');
   saveLongPayload(payload,function(url){
     unspin();
     openEmailModal(goDir?'Envoyer à la Direction':'Envoyer au responsable',destEmails,function(emails){
       spin('Envoi en cours...');
-      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'['+svc+'] '+hdr,body:body+url+'\n\nCordialement,\n'+prenom+' '+nom})
+      var texteMail='Une demande de congés/absence de <strong>'+escHtmlED(prenom+' '+nom)+'</strong> ('+escHtmlED(svc)+') attend votre signature en tant que <strong>'+(goDir?'direction':'responsable de service')+'</strong>.';
+      var bodyHtml=mailBodyHtmlED('Congés & absences','Signature à effectuer',texteMail,payload,url,'Consulter et signer →');
+      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'['+svc+'] '+hdr,body:bodyHtml})
         .then(function(){unspin();toast('Demande envoyee');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
@@ -744,17 +769,15 @@ function doSendDir2(){
     sigRespStrokes:getStrokes('sigRArea')
   });
   var st=subjTag(_data.cp,_data.abs);
-  var subj=st.tag+' Demande à valider — '+_data.prenom+' '+_data.nom+' ('+_data.service+')'+(st.dateStr?' — '+st.dateStr:'');
-  var cpInfo=_data.cp?'Du : '+fD(_data.cp.d)+' au '+fD(_data.cp.f)+' ('+_data.cp.n+' jours)':'';
-  var absInfo=_data.abs?'Absence '+_data.abs.motif+(_data.abs.motif==='RTT'?' ('+_data.abs.rttPer+')':'')+' : du '+fD(_data.abs.d)+((_data.abs.f&&_data.abs.f!==_data.abs.d)?' au '+fD(_data.abs.f):''):'';
   var hdr=mailHeader(_data.service,_data.nom,_data.prenom,st.dateStr);
-  var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour Julien,\n\nVeuillez trouver ci-dessous le lien pour signer la demande de '+_data.prenom+' '+_data.nom+'.\n\nService : '+_data.service+(cpInfo?'\n'+cpInfo:'')+(absInfo?'\n'+absInfo:'')+'\nDécision responsable : '+dec+'\n\nLien pour signer :\n\n';
   spin('Génération du lien...');
   saveLongPayload(payload,function(url){
     unspin();
     openEmailModal('Envoyer à la Direction',[DIR_EMAIL],function(emails){
       spin('Envoi en cours...');
-      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[DIRECTION] '+hdr,body:body+url+'\n\nCordialement,\n'+gv('respPrenom')+' '+gv('respNom')})
+      var texteMail='Une demande de congés/absence de <strong>'+escHtmlED(_data.prenom+' '+_data.nom)+'</strong> ('+escHtmlED(_data.service)+'), déjà '+(dec==='oui'?'autorisée':'refusée')+' par le responsable de service, attend votre signature en tant que <strong>direction</strong>.';
+      var bodyHtml=mailBodyHtmlED('Congés & absences','Signature à effectuer',texteMail,payload,url,'Consulter et signer →');
+      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[DIRECTION] '+hdr,body:bodyHtml})
         .then(function(){unspin();toast('Demande envoyee a la Direction');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
@@ -782,13 +805,14 @@ function doSendRH(){
   });
   var st=subjTag(d.cp,d.abs);
   var hdr=mailHeader(d.service,d.nom,d.prenom,st.dateStr);
-  var body='══════════════════════════\n'+hdr+'\n══════════════════════════\n\nBonjour,\n\nVeuillez trouver ci-dessous le lien pour télécharger la demande de congé signée de '+d.prenom+' '+d.nom+' ('+d.service+').\n\nLien pour télécharger le PDF :\n\n';
   spin('Génération du lien...');
   saveLongPayload(payload,function(url){
     unspin();
     function finish(emails){
       spin('Envoi en cours...');
-      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[RH] '+hdr,body:body+url+'\n\nCordialement,\n'+gv('dirPrenom')+' '+gv('dirNom')})
+      var texteMail='La demande de congés/absence de <strong>'+escHtmlED(d.prenom+' '+d.nom)+'</strong> ('+escHtmlED(d.service)+') a été signée par la direction et est prête à être archivée.';
+      var bodyHtml=mailBodyHtmlED('Congés & absences','Demande signée',texteMail,payload,url,'Consulter la demande →');
+      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[RH] '+hdr,body:bodyHtml})
         .then(function(){unspin();toast('Demande envoyee aux RH');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
