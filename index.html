@@ -365,10 +365,14 @@ function logType(d){return (d.cp?'CP':'')+(d.abs&&d.abs.on?(d.cp?'+':'')+'ABS':'
 function logDates(d){return {debut:(d.cp&&d.cp.d)||(d.abs&&d.abs.d)||'',fin:(d.cp&&d.cp.f)||(d.abs&&d.abs.f)||''}}
 function subjTag(cpData,absData){
   var tag=cpData&&absData?'[CP+ABS]':cpData?'[CP]':absData?'[ABS]':'[CP/ABS]';
+  var motifParts=[];
+  if(cpData)motifParts.push('CP');
+  if(absData)motifParts.push(absData.motif||'ABS');
+  var motif=motifParts.join(' + ');
   var dateStr='';
   if(cpData)dateStr='du '+fD(cpData.d)+(cpData.f&&cpData.f!==cpData.d?' au '+fD(cpData.f):'');
   else if(absData)dateStr='du '+fD(absData.d)+(absData.f&&absData.f!==absData.d?' au '+fD(absData.f):'');
-  return{tag:tag,dateStr:dateStr};
+  return{tag:tag,motif:motif,dateStr:dateStr};
 }
 function toast(msg,dur){var t=ge('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},dur||3000)}
 
@@ -415,8 +419,8 @@ function confirmEmails(){
 function sendMailSilent(payload){
   return fetch(N8N_MAIL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
 }
-function mailHeader(societe,nom,prenom,dateStr){
-  return 'EDGARD DEV - '+(societe?societe.toUpperCase()+' - ':'')+(nom||'').toUpperCase()+' '+(prenom||'')+(dateStr?' - '+dateStr:'');
+function mailHeader(societe,nom,prenom,dateStr,motif){
+  return 'EDGARD DEV - '+(societe?societe.toUpperCase()+' - ':'')+(nom||'').toUpperCase()+' '+(prenom||'')+(motif?' - '+motif:'')+(dateStr?' - '+dateStr:'');
 }
 /* ---------- Mail habillé (HTML, même gabarit que congés-payés/heures sup/NDF) ---------- */
 var BRAND={acc:'#C9A84C',accD:'#A97A2E',soft:'#F6EFD9',nom:'EDGARD',txt:'#1A1A1A'};
@@ -735,7 +739,7 @@ function doSendResp(){
   if(!dest){toast('Erreur: service non configuré');return}
   var destEmails=dest.emails||(dest.email?[dest.email]:[]);
   var st=subjTag(hasCp?cpData:null,hasAbs?absData:null);
-  var hdr=mailHeader(svc,nom,prenom,st.dateStr);
+  var hdr=mailHeader(svc,nom,prenom,st.dateStr,st.motif);
   spin('Génération du lien...');
   saveLongPayload(payload,function(url){
     unspin();
@@ -769,7 +773,7 @@ function doSendDir2(){
     sigRespStrokes:getStrokes('sigRArea')
   });
   var st=subjTag(_data.cp,_data.abs);
-  var hdr=mailHeader(_data.service,_data.nom,_data.prenom,st.dateStr);
+  var hdr=mailHeader(_data.service,_data.nom,_data.prenom,st.dateStr,st.motif);
   spin('Génération du lien...');
   saveLongPayload(payload,function(url){
     unspin();
@@ -804,7 +808,7 @@ function doSendRH(){
     sigDirStrokes:getStrokes('sigDArea')
   });
   var st=subjTag(d.cp,d.abs);
-  var hdr=mailHeader(d.service,d.nom,d.prenom,st.dateStr);
+  var hdr=mailHeader(d.service,d.nom,d.prenom,st.dateStr,st.motif);
   spin('Génération du lien...');
   saveLongPayload(payload,function(url){
     unspin();
