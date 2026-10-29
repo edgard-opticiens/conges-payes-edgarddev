@@ -363,6 +363,7 @@ function makeId(d){
 }
 function logType(d){return (d.cp?'CP':'')+(d.abs&&d.abs.on?(d.cp?'+':'')+'ABS':'')}
 function logDates(d){return {debut:(d.cp&&d.cp.d)||(d.abs&&d.abs.d)||'',fin:(d.cp&&d.cp.f)||(d.abs&&d.abs.f)||''}}
+  function logNbJours(d){return (d.cp&&d.cp.n)||(d.abs&&d.abs.on&&d.abs.j)||''}
 function subjTag(cpData,absData){
   var tag=cpData&&absData?'[CP+ABS]':cpData?'[CP]':absData?'[ABS]':'[CP/ABS]';
   var motifParts=[];
@@ -753,6 +754,7 @@ function doSendResp(){
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
         nom:nom,prenom:prenom,type:logType(payload),
         date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+        nb_jours:logNbJours(payload),
         etape:goDir?'direction':'responsable',statut:'en_attente',
         en_attente_nom:dest.prenom+' '+dest.nom,en_attente_email:emails.join(', '),
         date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
@@ -787,6 +789,7 @@ function doSendDir2(){
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
         nom:payload.nom,prenom:payload.prenom,type:logType(payload),
         date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+        nb_jours:logNbJours(payload),
         etape:'direction',statut:'en_attente',
         en_attente_nom:'DERUY Julien',en_attente_email:emails.join(', '),
         date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
@@ -822,6 +825,7 @@ function doSendRH(){
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
         nom:payload.nom,prenom:payload.prenom,type:logType(payload),
         date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
+        nb_jours:logNbJours(payload),
         etape:'rh',statut:'attente_telechargement',
         en_attente_nom:'RH',en_attente_email:emails.join(', '),
         date_derniere_action:new Date().toISOString(),relance_envoyee:'',lien:url});
@@ -906,6 +910,7 @@ function logRHValide(){
   logToSheet({id:makeId(_data),societe:'Edgard Développement',
     nom:_data.nom,prenom:_data.prenom,type:logType(_data),
     date_debut:logDates(_data).debut,date_fin:logDates(_data).fin,
+        nb_jours:logNbJours(_data),
     etape:'termine',statut:'telecharge',
     en_attente_nom:'',en_attente_email:'',
     date_derniere_action:new Date().toISOString(),relance_envoyee:''});
