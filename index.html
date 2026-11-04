@@ -357,6 +357,7 @@ var N8N_LOG='https://edgard-opticiens.app.n8n.cloud/webhook/log-demande';
 function logToSheet(payload){
   fetch(N8N_LOG,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
 }
+function logMotif(d){return (d.abs&&d.abs.on&&d.abs.motif)?(d.abs.motif+(d.abs.detail?(' — '+d.abs.detail):'')):'';}
 function makeId(d){
   var debut=(d.cp&&d.cp.d)||(d.abs&&d.abs.d)||new Date().toISOString().slice(0,10);
   return (d.service||'')+'_'+(d.nom||'')+'_'+(d.prenom||'')+'_'+debut;
@@ -755,7 +756,7 @@ function doSendResp(){
         .then(function(){unspin();toast('Demande envoyee');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
-        nom:nom,prenom:prenom,type:logType(payload),
+        nom:nom,prenom:prenom,type:logType(payload),motif:logMotif(payload),
         date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
         nb_jours:logNbJours(payload),
         etape:goDir?'direction':'responsable',statut:'en_attente',
@@ -790,7 +791,7 @@ function doSendDir2(){
         .then(function(){unspin();toast('Demande envoyee a la Direction');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
-        nom:payload.nom,prenom:payload.prenom,type:logType(payload),
+        nom:payload.nom,prenom:payload.prenom,type:logType(payload),motif:logMotif(payload),
         date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
         nb_jours:logNbJours(payload),
         etape:'direction',statut:'en_attente',
@@ -829,7 +830,7 @@ function doSendRH(){
         .then(function(){unspin();toast('Demande envoyee aux RH');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
-        nom:payload.nom,prenom:payload.prenom,type:logType(payload),
+        nom:payload.nom,prenom:payload.prenom,type:logType(payload),motif:logMotif(payload),
         date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
         nb_jours:logNbJours(payload),
         etape:'rh',statut:'attente_telechargement',
@@ -914,7 +915,7 @@ var _rhLogged=false;
 function logRHValide(){
   if(_rhLogged||!_data)return;_rhLogged=true;
   logToSheet({id:makeId(_data),societe:'Edgard Développement',
-    nom:_data.nom,prenom:_data.prenom,type:logType(_data),
+    nom:_data.nom,prenom:_data.prenom,type:logType(_data),motif:logMotif(_data),
     date_debut:logDates(_data).debut,date_fin:logDates(_data).fin,
         nb_jours:logNbJours(_data),
     etape:'termine',statut:'telecharge',
