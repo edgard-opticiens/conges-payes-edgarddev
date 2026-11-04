@@ -184,6 +184,7 @@ body{background:#fff;padding:0;}
       <div class="fg"><label class="lbl">Nom</label><input class="inp" id="nom" placeholder="NOM" autocomplete="off"></div>
       <div class="fg"><label class="lbl">Prénom</label><input class="inp" id="prenom" placeholder="Prénom" autocomplete="off"></div>
     </div>
+    <div class="fg" style="margin-top:8px"><label class="lbl">Email personnel</label><input class="inp" type="email" id="collabEmail" placeholder="vous@exemple.fr" autocomplete="off"></div>
 
     <!-- Section Congé Payé -->
     <div class="sec">
@@ -331,6 +332,7 @@ function isDirectToDir(svc,nom){
 function isFinanceSelf(svc,nom){return svc==='Finance'&&nom.toUpperCase().indexOf('DIEULEVEULT')>=0;}
 var DIR_EMAIL='j.deruy@groupe-edgard.com';
 var RH_EMAIL='ressources-humaines@groupe-edgard.com';
+var PORTAL_URL='https://edgard-opticiens.github.io/portail-rh-edgard/';
 var BASE_URL=window.location.href.split('?')[0].split('#')[0].replace(/\/$/,'');
 var NS='http://www.w3.org/2000/svg';
 var _isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
@@ -718,6 +720,7 @@ function doSendResp(){
   var svc=gv('service'),nom=gv('nom').trim(),prenom=gv('prenom').trim();
   if(!svc){toast('Sélectionnez votre service');return}
   if(!nom||!prenom){toast('Saisissez votre nom et prénom');return}
+  if(!gv('collabEmail').trim()||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gv('collabEmail').trim())){toast('Saisissez votre email personnel (valide)');return}
   var hasCp=ge('chkCP')&&ge('chkCP').checked&&gv('cpD')&&gv('cpF');
   var absData=getAbsData();
   var hasAbs=absData&&absData.motif&&absData.d;
@@ -731,7 +734,7 @@ function doSendResp(){
   var arData=getARData();
   var payload={
     mode:'resp',
-    service:svc,nom:nom,prenom:prenom,
+    service:svc,nom:nom,prenom:prenom,email:gv('collabEmail'),
     annuleRemplace:arData,
     cp:hasCp?cpData:null,tsC:_tsC,
     abs:absData||null,
@@ -829,6 +832,13 @@ function doSendRH(){
       sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[RH]['+decLabel+'] '+hdr,body:bodyHtml})
         .then(function(){unspin();toast('Demande envoyee aux RH');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
+      if(payload.email){
+        var subjCollab=(decOk?'Votre demande de congés a été acceptée':'Votre demande de congés a été refusée')+' — '+hdr;
+        var bodyCollab=mailBodyHtmlED('Congés & absences',decOk?'Votre demande a été acceptée':'Votre demande a été refusée',
+          'Votre demande de congés/absence a été <strong>'+(decOk?'acceptée':'refusée')+'</strong> par la direction.',
+          payload,PORTAL_URL,'Ouvrir le portail RH →',extraRowMail,decOk?null:REFUS_ACCENT);
+        sendMailSilent({to:payload.email,subject:subjCollab,body:bodyCollab}).catch(function(){});
+      }
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
         nom:payload.nom,prenom:payload.prenom,type:logType(payload),motif:logMotif(payload),
         date_debut:logDates(payload).debut,date_fin:logDates(payload).fin,
