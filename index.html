@@ -333,7 +333,6 @@ function isDirectToDir(svc,nom){
 function isFinanceSelf(svc,nom){return svc==='Finance'&&nom.toUpperCase().indexOf('DIEULEVEULT')>=0;}
 var DIR_EMAIL='j.deruy@groupe-edgard.com';
 var RH_EMAIL='ressources-humaines@groupe-edgard.com';
-var PORTAL_URL='https://edgard-opticiens.github.io/portail-rh-edgard/';
 var BASE_URL=window.location.href.split('?')[0].split('#')[0].replace(/\/$/,'');
 var NS='http://www.w3.org/2000/svg';
 var _isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
@@ -658,8 +657,9 @@ async function genPDF(asBlob){
   // Masquer les cadenas (shields) avant capture PDF
   var shields=document.querySelectorAll('.shield');
   shields.forEach(function(el){el.style.display='none'});
-  var adjPanels=[ge('rhAdjBox'),ge('rhAdjBoxAbs'),ge('collabEmailBlk')];
+  var adjPanels=[ge('rhAdjBox'),ge('rhAdjBoxAbs')];
   adjPanels.forEach(function(el){if(el)el.style.visibility='hidden'});
+  var emB=ge('collabEmailBlk');var emBd=emB?emB.style.display:null;if(emB)emB.style.display='none';
   var frozenFields=freezeTextFields();
   // Supprimer le cadre/ombre du wrap pour PDF propre
   var wrap=ge('wrap');
@@ -685,6 +685,7 @@ async function genPDF(asBlob){
   // Restaurer les cadenas et panneaux
   shields.forEach(function(el){el.style.display=''});
   adjPanels.forEach(function(el){if(el)el.style.visibility=''});
+  if(emB)emB.style.display=emBd||'';
   wrap.style.boxShadow=origShadow;wrap.style.borderRadius=origRadius;
   if(iosOverlay)iosOverlay.style.display='';
   return res;
@@ -837,7 +838,7 @@ function doSendRH(){
         var subjCollab=(decOk?'Votre demande de congés a été acceptée':'Votre demande de congés a été refusée')+' — '+hdr;
         var bodyCollab=mailBodyHtmlED('Congés & absences',decOk?'Votre demande a été acceptée':'Votre demande a été refusée',
           'Votre demande de congés/absence a été <strong>'+(decOk?'acceptée':'refusée')+'</strong> par la direction.',
-          payload,PORTAL_URL,'Ouvrir le portail RH →',extraRowMail,decOk?null:REFUS_ACCENT);
+          payload,url,'Consulter la demande →',extraRowMail,decOk?null:REFUS_ACCENT);
         sendMailSilent({to:payload.email,subject:subjCollab,body:bodyCollab}).catch(function(){});
       }
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
