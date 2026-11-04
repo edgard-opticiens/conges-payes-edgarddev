@@ -357,7 +357,7 @@ var N8N_LOG='https://edgard-opticiens.app.n8n.cloud/webhook/log-demande';
 function logToSheet(payload){
   fetch(N8N_LOG,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
 }
-function logMotif(d){return (d.abs&&d.abs.on&&d.abs.motif)?(d.abs.motif+(d.abs.detail?(' — '+d.abs.detail):'')):'';}
+function logMotif(d){return (d.abs&&d.abs.on&&d.abs.motif)?d.abs.motif:'';}
 function makeId(d){
   var debut=(d.cp&&d.cp.d)||(d.abs&&d.abs.d)||new Date().toISOString().slice(0,10);
   return (d.service||'')+'_'+(d.nom||'')+'_'+(d.prenom||'')+'_'+debut;
