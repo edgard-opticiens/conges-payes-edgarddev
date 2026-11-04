@@ -425,27 +425,30 @@ function mailHeader(societe,nom,prenom,dateStr,motif){
 }
 /* ---------- Mail habillé (HTML, même gabarit que congés-payés/heures sup/NDF) ---------- */
 var BRAND={acc:'#C9A84C',accD:'#A97A2E',soft:'#F6EFD9',nom:'EDGARD',txt:'#1A1A1A'};
+var REFUS_ACCENT={acc:'#D9534F',accD:'#B23A3A',soft:'#FBEAEA',txt:'#ffffff',titre:'#B23A3A'};
 function escHtmlED(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function infoRowED(l,v){return '<tr><td style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#666666;width:150px;">'+l+'</td><td style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1A1A1A;font-weight:700;">'+v+'</td></tr>';}
-function mailBodyHtmlED(eyebrow,titre,texte,d,link,ctaLabel){
+function mailBodyHtmlED(eyebrow,titre,texte,d,link,ctaLabel,extra,accent){
+  var AC=accent||{acc:BRAND.acc,accD:BRAND.accD,soft:BRAND.soft,txt:BRAND.txt,titre:'#1A1A1A'};
   var cpInfo=(d.cp&&d.cp.d&&d.cp.f)?('CP : du '+fD(d.cp.d)+' au '+fD(d.cp.f)+(d.cp.n?' ('+d.cp.n+' jours)':'')):'';
   var absInfo=(d.abs&&d.abs.on&&d.abs.d)?('Absence '+(d.abs.motif||'')+' : du '+fD(d.abs.d)+((d.abs.f&&d.abs.f!==d.abs.d)?' au '+fD(d.abs.f):'')):'';
   var rows=infoRowED('Collaborateur',escHtmlED((d.prenom||'')+' '+(d.nom||'').toUpperCase()))+
     (d.service?infoRowED('Service',escHtmlED(d.service)):'')+
     (cpInfo?infoRowED('Demande',escHtmlED(cpInfo)):'')+
-    (absInfo?infoRowED('Demande',escHtmlED(absInfo)):'');
+    (absInfo?infoRowED('Demande',escHtmlED(absInfo)):'')+
+    (extra||'');
   var href=escHtmlED(link);
   return ' <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F2EFE8;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;"><tr><td align="center">'+
    '<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:10px;overflow:hidden;">'+
-   '<tr><td style="background:'+BRAND.acc+';padding:20px 32px;"><span style="font-family:Georgia,\'Times New Roman\',serif;color:'+BRAND.txt+';font-size:20px;font-weight:700;letter-spacing:.03em;">'+BRAND.nom+'</span>'+
-   '<span style="font-family:Arial,Helvetica,sans-serif;color:'+BRAND.txt+';opacity:.85;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-left:10px;">Edgard Développement</span></td></tr>'+
+   '<tr><td style="background:'+AC.acc+';padding:20px 32px;"><span style="font-family:Georgia,\'Times New Roman\',serif;color:'+AC.txt+';font-size:20px;font-weight:700;letter-spacing:.03em;">'+BRAND.nom+'</span>'+
+   '<span style="font-family:Arial,Helvetica,sans-serif;color:'+AC.txt+';opacity:.85;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-left:10px;">Edgard Développement</span></td></tr>'+
    '<tr><td style="padding:32px 32px 28px;">'+
-   '<p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:'+BRAND.accD+';">'+eyebrow+'</p>'+
-   '<h1 style="margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;color:#1A1A1A;">'+titre+'</h1>'+
+   '<p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:'+AC.accD+';">'+eyebrow+'</p>'+
+   '<h1 style="margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;color:'+AC.titre+';">'+titre+'</h1>'+
    '<p style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#333333;">'+texte+'</p>'+
-   '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:'+BRAND.soft+';border-radius:8px;padding:10px 14px;margin:6px 0 0;"><tr><td style="padding:8px 14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">'+rows+'</table></td></tr></table>'+
-   '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 6px;"><tr><td bgcolor="'+BRAND.acc+'" style="border-radius:6px;"><a href="'+href+'" style="display:inline-block;padding:13px 26px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:'+BRAND.txt+';text-decoration:none;">'+ctaLabel+'</a></td></tr></table>'+
-   '<p style="margin:8px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#999999;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:<br><a href="'+href+'" style="color:'+BRAND.accD+';word-break:break-all;">'+href+'</a></p>'+
+   '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:'+AC.soft+';border-radius:8px;padding:10px 14px;margin:6px 0 0;"><tr><td style="padding:8px 14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">'+rows+'</table></td></tr></table>'+
+   '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 6px;"><tr><td bgcolor="'+AC.acc+'" style="border-radius:6px;"><a href="'+href+'" style="display:inline-block;padding:13px 26px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:'+AC.txt+';text-decoration:none;">'+ctaLabel+'</a></td></tr></table>'+
+   '<p style="margin:8px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#999999;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:<br><a href="'+href+'" style="color:'+AC.accD+';word-break:break-all;">'+href+'</a></p>'+
    '</td></tr>'+
    '<tr><td style="padding:16px 32px;background:#F9F7F2;border-top:1px solid #E0DCD0;"><p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#999999;">Envoi automatique — merci de ne pas répondre à cet e-mail.</p></td></tr>'+
    '</table></td></tr></table>';
@@ -817,9 +820,12 @@ function doSendRH(){
     unspin();
     function finish(emails){
       spin('Envoi en cours...');
-      var texteMail='La demande de congés/absence de <strong>'+escHtmlED(d.prenom+' '+d.nom)+'</strong> ('+escHtmlED(d.service)+') a été signée par la direction et est prête à être archivée.';
-      var bodyHtml=mailBodyHtmlED('Congés & absences','Demande signée',texteMail,payload,url,'Consulter la demande →');
-      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[RH] '+hdr,body:bodyHtml})
+      var decOk=(dec==='oui');
+      var decLabel=decOk?'Accordée':'Refusée';
+      var extraRowMail=(!decOk&&gv('refMD'))?infoRowED('Motif du refus',escHtmlED(gv('refMD'))):'';
+      var texteMail='La demande de congés/absence de <strong>'+escHtmlED(d.prenom+' '+d.nom)+'</strong> ('+escHtmlED(d.service)+') a été <strong>'+(decOk?'acceptée':'refusée')+'</strong> par la direction.'+(decOk?' Elle est prête à être archivée.':'');
+      var bodyHtml=mailBodyHtmlED('Congés & absences',decOk?'Demande acceptée':'Demande refusée',texteMail,payload,url,'Consulter la demande →',extraRowMail,decOk?null:REFUS_ACCENT);
+      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[RH]['+decLabel+'] '+hdr,body:bodyHtml})
         .then(function(){unspin();toast('Demande envoyee aux RH');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
