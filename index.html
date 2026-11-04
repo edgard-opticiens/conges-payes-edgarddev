@@ -107,6 +107,7 @@ body{background:#fff;padding:0;}
 #wrap{box-shadow:none;border-radius:0;max-width:100%}
 .shield{display:none!important}
 #rhAdjBox,#rhAdjBoxAbs{display:none!important}
+#collabEmailBlk{display:none!important}
 }
 </style>
 </head>
@@ -184,7 +185,7 @@ body{background:#fff;padding:0;}
       <div class="fg"><label class="lbl">Nom</label><input class="inp" id="nom" placeholder="NOM" autocomplete="off"></div>
       <div class="fg"><label class="lbl">Prénom</label><input class="inp" id="prenom" placeholder="Prénom" autocomplete="off"></div>
     </div>
-    <div class="fg" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)"><label class="lbl">Email personnel</label><input class="inp" type="email" id="collabEmail" placeholder="vous@exemple.fr" autocomplete="off"><div style="font-size:10px;color:var(--md);margin-top:4px;font-weight:500">Pour recevoir par email la confirmation (acceptée ou refusée) de votre demande de congés/absence.</div></div>
+    <div class="fg" id="collabEmailBlk" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)"><label class="lbl">Email personnel</label><input class="inp" type="email" id="collabEmail" placeholder="vous@exemple.fr" autocomplete="off"><div style="font-size:10px;color:var(--md);margin-top:4px;font-weight:500">Pour recevoir par email la confirmation (acceptée ou refusée) de votre demande de congés/absence.</div></div>
 
     <!-- Section Congé Payé -->
     <div class="sec">
@@ -657,7 +658,7 @@ async function genPDF(asBlob){
   // Masquer les cadenas (shields) avant capture PDF
   var shields=document.querySelectorAll('.shield');
   shields.forEach(function(el){el.style.display='none'});
-  var adjPanels=[ge('rhAdjBox'),ge('rhAdjBoxAbs')];
+  var adjPanels=[ge('rhAdjBox'),ge('rhAdjBoxAbs'),ge('collabEmailBlk')];
   adjPanels.forEach(function(el){if(el)el.style.visibility='hidden'});
   var frozenFields=freezeTextFields();
   // Supprimer le cadre/ombre du wrap pour PDF propre
