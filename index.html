@@ -185,7 +185,7 @@ body{background:#fff;padding:0;}
       <div class="fg"><label class="lbl">Nom</label><input class="inp" id="nom" placeholder="NOM" autocomplete="off"></div>
       <div class="fg"><label class="lbl">Prénom</label><input class="inp" id="prenom" placeholder="Prénom" autocomplete="off"></div>
     </div>
-    <div class="fg" id="collabEmailBlk" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)"><label class="lbl">Email personnel</label><input class="inp" type="email" id="collabEmail" placeholder="vous@exemple.fr" autocomplete="off"><div style="font-size:10px;color:var(--md);margin-top:4px;font-weight:500">Pour recevoir par email la confirmation (acceptée ou refusée) de votre demande de congés/absence.</div></div>
+    <div class="fg" id="collabEmailBlk" style="margin-top:14px;padding-top:12px;margin-bottom:14px;border-top:1px solid var(--bd)"><label class="lbl">Email personnel</label><input class="inp" type="email" id="collabEmail" placeholder="vous@exemple.fr" autocomplete="off"><div style="font-size:10px;color:var(--md);margin-top:4px;font-weight:500">Pour recevoir par email la confirmation (acceptée ou refusée) de votre demande de congés/absence.</div></div>
 
     <!-- Section Congé Payé -->
     <div class="sec">
@@ -758,7 +758,7 @@ function doSendResp(){
       var texteMail='Une demande de congés/absence de <strong>'+escHtmlED(prenom+' '+nom)+'</strong> ('+escHtmlED(svc)+') attend votre signature en tant que <strong>'+(goDir?'direction':'responsable de service')+'</strong>.';
       var bodyHtml=mailBodyHtmlED('Congés & absences','Signature à effectuer',texteMail,payload,url,'Consulter et signer →');
       sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'['+svc+'] '+hdr,body:bodyHtml})
-        .then(function(){unspin();toast('Demande envoyee');})
+        .then(function(){unspin();toast('Demande envoyee');resetForm();})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       logToSheet({id:makeId(payload),date_creation:new Date().toISOString(),societe:'Edgard Développement',
         nom:nom,prenom:prenom,type:logType(payload),motif:logMotif(payload),
@@ -936,7 +936,7 @@ function logRHValide(){
 }
 /* ───────── RESET ───────── */
 function resetForm(){
-  ['service','nom','prenom','cpD','cpF','respNom','respPrenom','dirNom','dirPrenom','refMR','refMD','arDate'].forEach(function(i){var el=ge(i);if(el)el.value=''});
+  ['service','nom','prenom','cpD','cpF','respNom','respPrenom','dirNom','dirPrenom','refMR','refMD','arDate','collabEmail'].forEach(function(i){var el=ge(i);if(el)el.value=''});
   ge('jrBlk').style.display='none';
   if(ge('chkAR')){ge('chkAR').checked=false;toggleAR();}
   clrSig('C');clrSig('R');clrSig('D');
