@@ -359,6 +359,18 @@ var N8N_LOG='https://edgard-opticiens.app.n8n.cloud/webhook/log-demande';
 function logToSheet(payload){
   fetch(N8N_LOG,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
 }
+var N8N_VERIF_DOUBLON='https://edgard-opticiens.app.n8n.cloud/webhook/conges-verifier-doublon';
+/* Verifie si une demande avec exactement les memes dates existe deja pour ce collaborateur.
+   cb(true) = doublon detecte (blocage), cb(false) = pas de doublon (ou erreur reseau -> on laisse passer). */
+function checkDoublon(payload,cb){
+  var dt=logDates(payload);
+  if(!dt.debut||!dt.fin){cb(false);return;}
+  fetch(N8N_VERIF_DOUBLON,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({societe:'Edgard Développement',nom:payload.nom,prenom:payload.prenom,date_debut:dt.debut,date_fin:dt.fin})})
+    .then(function(r){return r.json();})
+    .then(function(res){cb(!!(res&&res.doublon));})
+    .catch(function(){cb(false);});
+}
 function logMotif(d){return (d.abs&&d.abs.on&&d.abs.motif)?d.abs.motif:'';}
 function makeId(d){
   var debut=(d.cp&&d.cp.d)||(d.abs&&d.abs.d)||new Date().toISOString().slice(0,10);
@@ -422,6 +434,20 @@ function confirmEmails(){
 }
 function sendMailSilent(payload){
   return fetch(N8N_MAIL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+}
+/* Envoie un email "vers RH" en garantissant que RH le recoit meme si une adresse
+   personnelle/externe a ete ajoutee (manuellement, via la fenetre d'envoi) a la liste.
+   Le garde-fou de securite cote n8n bloque tout l'envoi des qu'une adresse externe est
+   melangee a des adresses internes en cc — on separe donc : les adresses @groupe-edgard.com
+   partent ensemble (to+cc), toute adresse externe part en plus, seule, dans son propre envoi. */
+function isInternalAdr(a){return /^[^\s@]+@groupe-edgard\.com$/i.test(String(a||'').trim());}
+function sendToRH(emails,subject,body){
+  var list=(emails||[]).map(function(e){return String(e||'').trim();}).filter(Boolean);
+  var internal=list.filter(isInternalAdr);
+  var external=list.filter(function(e){return !isInternalAdr(e);});
+  var p=internal.length?sendMailSilent({to:internal[0],cc:internal.slice(1),subject:subject,body:body}):Promise.resolve();
+  external.forEach(function(e){sendMailSilent({to:e,subject:subject,body:body}).catch(function(){});});
+  return p;
 }
 function mailHeader(societe,nom,prenom,dateStr,motif){
   return 'EDGARD DEV - '+(societe?societe.toUpperCase()+' - ':'')+(nom||'').toUpperCase()+' '+(prenom||'')+(motif?' - '+motif:'')+(dateStr?' - '+dateStr:'');
@@ -730,6 +756,7 @@ function doSendResp(){
   if(absData&&absData.motif==='RTT'&&!absData.rttPer){toast('Précisez la période du RTT : Matin, Après-midi ou Journée entière');return}
   if(absData&&absData.on&&absData.motif!=='RTT'&&(!absData.h||!absData.j)){toast('Saisissez les heures et le nombre de jours d\'absence');return}
   if(absData&&absData.on&&absData.motif==='RTT'&&!absData.j){toast('Saisissez le nombre de jours d\'absence');return}
+  if(ge('chkAR')&&ge('chkAR').checked&&!gv('arDate').trim()){toast('Indiquez la date de la demande initiale pour l\'annule et remplace');return}
   if(isEmptySig('sigCArea')){toast('Apposez votre signature');return}
   var cpData=null;
   if(hasCp){cpData={d:gv('cpD'),f:gv('cpF')};var r=countJ(cpData.d,cpData.f);cpData.n=String(r.c);cpData.det=r.fe?'dont '+r.fe+' jour(s) ferié(s)':'';cpData.signal=!!(ge('cpSignal')&&ge('cpSignal').checked);cpData.signalNote=gv('cpSignalNote');}
@@ -750,6 +777,13 @@ function doSendResp(){
   var destEmails=dest.emails||(dest.email?[dest.email]:[]);
   var st=subjTag(hasCp?cpData:null,hasAbs?absData:null);
   var hdr=mailHeader(svc,nom,prenom,st.dateStr,st.motif);
+  spin('Vérification...');
+  checkDoublon(payload,function(doublon){
+    if(doublon){unspin();toast('Une demande existe déjà avec exactement les mêmes dates. Vérifiez vos demandes en cours.');return;}
+    _doSendRespApres(payload,goDir,dest,destEmails,hdr,svc,nom,prenom);
+  });
+}
+function _doSendRespApres(payload,goDir,dest,destEmails,hdr,svc,nom,prenom){
   spin('Génération du lien...');
   saveLongPayload(payload,function(url){
     unspin();
@@ -831,7 +865,7 @@ function doSendRH(){
       var extraRowMail=(!decOk&&gv('refMD'))?infoRowED('Motif du refus',escHtmlED(gv('refMD'))):'';
       var texteMail='La demande de congés/absence de <strong>'+escHtmlED(d.prenom+' '+d.nom)+'</strong> ('+escHtmlED(d.service)+') a été <strong>'+(decOk?'acceptée':'refusée')+'</strong> par la direction.'+(decOk?' Elle est prête à être archivée.':'');
       var bodyHtml=mailBodyHtmlED('Congés & absences',decOk?'Demande acceptée':'Demande refusée',texteMail,payload,url,'Consulter la demande →',extraRowMail,decOk?null:REFUS_ACCENT);
-      sendMailSilent({to:emails[0],cc:emails.slice(1),subject:'[RH]['+decLabel+'] '+hdr,body:bodyHtml})
+      sendToRH(emails,'[RH]['+decLabel+'] '+hdr,bodyHtml)
         .then(function(){unspin();toast('Demande envoyee aux RH');})
         .catch(function(){unspin();toast('Erreur d\'envoi, reessayez');});
       if(payload.email){
